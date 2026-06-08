@@ -193,6 +193,16 @@ export interface Options {
         /** Enable automatic sanitization of invalid register values */
         enableSanitization?: boolean;
 
+        // Only for slave — read-notify feature
+        /** Signal mechanism for read-notify states: boolean pulse or incrementing counter */
+        notifyOnReadMode?: 'pulse' | 'counter';
+        /** Expire time in seconds for counter-mode read-notify states; 0 = no expire */
+        notifyOnReadExpire?: number;
+        notifyOnReadCoils?: boolean;
+        notifyOnReadDisInputs?: boolean;
+        notifyOnReadInputRegs?: boolean;
+        notifyOnReadHoldingRegs?: boolean;
+
         tcp?: {
             port: number;
             ip?: string;
@@ -319,6 +329,20 @@ export interface ModbusParameters {
     sslAllowSelfSigned?: boolean;
     /** Enable automatic sanitization of invalid register values (NaN, Infinity, extreme floats, out-of-range) */
     enableSanitization?: boolean;
+
+    // Slave mode — read-notify feature
+    /** Signal mechanism: boolean pulse or incrementing counter. Default: 'counter' */
+    notifyOnReadMode?: 'pulse' | 'counter';
+    /** Expire time in seconds for counter-mode states; 0 or omitted = no expire */
+    notifyOnReadExpire?: number | string;
+    /** Emit read-notify states for coils (FC1) */
+    notifyOnReadCoils?: boolean;
+    /** Emit read-notify states for discrete inputs (FC2) */
+    notifyOnReadDisInputs?: boolean;
+    /** Emit read-notify states for input registers (FC4) */
+    notifyOnReadInputRegs?: boolean;
+    /** Emit read-notify states for holding registers (FC3) */
+    notifyOnReadHoldingRegs?: boolean;
 }
 
 export interface ModbusParametersTyped extends ModbusParameters {
@@ -429,6 +453,14 @@ export interface ModbusParametersTyped extends ModbusParameters {
     disableLogging: boolean;
     /** Enable automatic sanitization of invalid register values */
     enableSanitization?: boolean;
+
+    // Slave mode — read-notify feature
+    notifyOnReadMode?: 'pulse' | 'counter';
+    notifyOnReadExpire?: number | string;
+    notifyOnReadCoils?: boolean;
+    notifyOnReadDisInputs?: boolean;
+    notifyOnReadInputRegs?: boolean;
+    notifyOnReadHoldingRegs?: boolean;
 }
 
 export interface ModbusAdapterConfig extends ioBroker.AdapterConfig {

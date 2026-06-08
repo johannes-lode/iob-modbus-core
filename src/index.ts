@@ -767,6 +767,15 @@ export default class ModbusAdapter extends Adapter {
         options.config.disableLogging = params.disableLogging;
         options.config.enableSanitization = !!params.enableSanitization;
 
+        if (options.config.slave) {
+            options.config.notifyOnReadMode = params.notifyOnReadMode || 'counter';
+            options.config.notifyOnReadExpire = parseInt(params.notifyOnReadExpire as string, 10) || 0;
+            options.config.notifyOnReadCoils = !!params.notifyOnReadCoils;
+            options.config.notifyOnReadDisInputs = !!params.notifyOnReadDisInputs;
+            options.config.notifyOnReadInputRegs = !!params.notifyOnReadInputRegs;
+            options.config.notifyOnReadHoldingRegs = !!params.notifyOnReadHoldingRegs;
+        }
+
         if (params.type === 'tcp' || params.type === 'udp' || params.type === 'tcprtu' || params.type === 'tcp-ssl') {
             options.config.tcp = {
                 port: parseInt(params.port as string, 10) || 502,
@@ -1048,6 +1057,62 @@ export default class ModbusAdapter extends Adapter {
                 } as ioBroker.ChannelObject,
             });
         }
+    }
+
+    checkReadNotifyObjects(
+        regType: Modbus.RegisterType,
+        regName: string,
+        tasks: (
+            | { name: 'add'; id: string; obj: ioBroker.StateObject | ioBroker.ChannelObject }
+            | { name: 'del'; id: string }
+            | { name: 'syncEnums'; id: string; newName: string }
+        )[],
+        newObjects: string[],
+        deviceId: number,
+        isPulse: boolean,
+    ): boolean {
+        const regs = this.config[regType] as Modbus.RegisterInternal[];
+        let count = 0;
+
+        for (const reg of regs) {
+            if (reg.deviceId !== deviceId) {
+                continue;
+            }
+            const notifyId = `readNotify.${reg.id}`;
+            tasks.push({
+                id: notifyId,
+                name: 'add',
+                obj: {
+                    type: 'state',
+                    common: {
+                        name: reg.description || reg.id,
+                        role: 'state',
+                        type: isPulse ? 'boolean' : 'number',
+                        read: true,
+                        write: true,
+                        def: isPulse ? false : 0,
+                    },
+                    native: {},
+                } as ioBroker.StateObject,
+            });
+            newObjects.push(`${this.namespace}.${notifyId}`);
+            count++;
+        }
+
+        if (count) {
+            tasks.push({
+                id: `readNotify.${regName}`,
+                name: 'add',
+                obj: {
+                    type: 'channel',
+                    common: { name: `Read notify: ${regName}` },
+                    native: {},
+                } as ioBroker.ChannelObject,
+            });
+            newObjects.push(`${this.namespace}.readNotify.${regName}`);
+        }
+
+        return count > 0;
     }
 
     assignIds(
@@ -1518,6 +1583,47 @@ export default class ModbusAdapter extends Adapter {
                 device.holdingRegs.fullIds = this.config.holdingRegs
                     .filter(e => e.deviceId === deviceId)
                     .map(e => (e as Modbus.RegisterInternal).fullId);
+
+                const isPulse = options.config.notifyOnReadMode === 'pulse';
+                let hasReadNotify = false;
+                if (options.config.notifyOnReadDisInputs) {
+                    hasReadNotify =
+                        this.checkReadNotifyObjects('disInputs', 'disInputs', tasks, newObjects, deviceId, isPulse) ||
+                        hasReadNotify;
+                }
+                if (options.config.notifyOnReadCoils) {
+                    hasReadNotify =
+                        this.checkReadNotifyObjects('coils', 'coils', tasks, newObjects, deviceId, isPulse) ||
+                        hasReadNotify;
+                }
+                if (options.config.notifyOnReadInputRegs) {
+                    hasReadNotify =
+                        this.checkReadNotifyObjects('inputRegs', 'inputRegs', tasks, newObjects, deviceId, isPulse) ||
+                        hasReadNotify;
+                }
+                if (options.config.notifyOnReadHoldingRegs) {
+                    hasReadNotify =
+                        this.checkReadNotifyObjects(
+                            'holdingRegs',
+                            'holdingRegs',
+                            tasks,
+                            newObjects,
+                            deviceId,
+                            isPulse,
+                        ) || hasReadNotify;
+                }
+                if (hasReadNotify) {
+                    tasks.push({
+                        id: 'readNotify',
+                        name: 'add',
+                        obj: {
+                            type: 'channel',
+                            common: { name: 'Read notify' },
+                            native: {},
+                        } as ioBroker.ChannelObject,
+                    });
+                    newObjects.push(`${this.namespace}.readNotify`);
+                }
             }
 
             if (!options.config.multiDeviceId) {
@@ -1587,6 +1693,26 @@ export default class ModbusAdapter extends Adapter {
             }
             await this.setStateAsync('info.connectionSlave', '', true);
             newObjects.push(`${this.namespace}.info.connectionSlave`);
+        }
+
+        if (options.config.slave) {
+            if (!(await this.getObjectAsync('info.adapterStarts'))) {
+                await this.setObjectAsync('info.adapterStarts', {
+                    type: 'state',
+                    common: {
+                        name: 'Adapter start count',
+                        role: 'state',
+                        type: 'number',
+                        read: true,
+                        write: true,
+                        def: 0,
+                    },
+                    native: {},
+                } as ioBroker.StateObject);
+            }
+            const startsState = await this.getStateAsync('info.adapterStarts');
+            await this.setStateAsync('info.adapterStarts', ((startsState?.val as number) || 0) + 1, true);
+            newObjects.push(`${this.namespace}.info.adapterStarts`);
         }
 
         // clear unused states

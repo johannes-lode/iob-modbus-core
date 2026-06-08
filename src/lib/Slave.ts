@@ -41,6 +41,7 @@ export default class Slave {
      * (a client write is a command that is forwarded to the real device via the master).
      */
     private readonly writeAck: boolean;
+    private readonly readNotifyCounters = new Map<string, number>();
 
     constructor(options: Options, adapter: ioBroker.Adapter) {
         this.objects = options.objects;
@@ -136,6 +137,37 @@ export default class Slave {
         return Promise.resolve();
     }
 
+    private emitReadNotify(valueStateId: string): void {
+        const shortId = valueStateId.slice(this.adapter.namespace.length + 1);
+        const notifyId = `${this.adapter.namespace}.readNotify.${shortId}`;
+        if (this.options.config.notifyOnReadMode === 'pulse') {
+            void this.adapter.setState(
+                notifyId,
+                true,
+                true,
+                err => err && this.adapter.log.error(`readNotify setState error: ${err.message}`),
+            );
+            setImmediate(
+                () =>
+                    void this.adapter.setState(
+                        notifyId,
+                        false,
+                        false,
+                        err => err && this.adapter.log.error(`readNotify setState error: ${err.message}`),
+                    ),
+            );
+        } else {
+            const counter = (this.readNotifyCounters.get(notifyId) ?? 0) + 1;
+            this.readNotifyCounters.set(notifyId, counter);
+            const expire = this.options.config.notifyOnReadExpire;
+            void this.adapter.setState(
+                notifyId,
+                expire ? { val: counter, ack: true, expire } : { val: counter, ack: true },
+                err => err && this.adapter.log.error(`readNotify setState error: ${err.message}`),
+            );
+        }
+    }
+
     start(): void {
         if (this.device && !this.delayStart && !this.modbusServer) {
             // this.device.coils ||= {
@@ -226,6 +258,18 @@ export default class Slave {
                 }
             });
 
+            this.modbusServer.on('preReadCoilsRequest', (start: number, quantity: number): void => {
+                if (this.options.config.notifyOnReadCoils) {
+                    const regs = this.device.coils;
+                    for (let i = 0; i < quantity; i++) {
+                        const a = start + i - regs.addressLow;
+                        if (a >= 0 && regs.mapping[a]) {
+                            this.emitReadNotify(regs.mapping[a]);
+                        }
+                    }
+                }
+            });
+
             this.modbusServer.on('readDiscreteInputsRequest', (start: number, quantity: number): void => {
                 const regs = this.device.disInputs;
                 if (
@@ -263,6 +307,15 @@ export default class Slave {
                         data.writeUInt8(byte, byteIndex);
                     }
                 }
+                if (this.options.config.notifyOnReadDisInputs) {
+                    const regsN = this.device.disInputs;
+                    for (let i = 0; i < quantity; i++) {
+                        const a = start + i - regsN.addressLow;
+                        if (a >= 0 && regsN.mapping[a]) {
+                            this.emitReadNotify(regsN.mapping[a]);
+                        }
+                    }
+                }
             });
 
             // let "function" here and not use =>
@@ -295,6 +348,15 @@ export default class Slave {
                         }
                     }
                 }
+                if (this.options.config.notifyOnReadInputRegs) {
+                    const wordStart = start >> 1;
+                    for (let i = 0; i < quantity; i++) {
+                        const a = wordStart + i - regs.addressLow;
+                        if (a >= 0 && regs.mapping[a]) {
+                            this.emitReadNotify(regs.mapping[a]);
+                        }
+                    }
+                }
             });
 
             // let "function" here and not use =>
@@ -324,6 +386,15 @@ export default class Slave {
                             data.writeUInt8(regs.values[i - low] as number, i);
                         } else {
                             data.writeUInt8(0, i);
+                        }
+                    }
+                }
+                if (this.options.config.notifyOnReadHoldingRegs) {
+                    const wordStart = start >> 1;
+                    for (let i = 0; i < quantity; i++) {
+                        const a = wordStart + i - regs.addressLow;
+                        if (a >= 0 && regs.mapping[a]) {
+                            this.emitReadNotify(regs.mapping[a]);
                         }
                     }
                 }
