@@ -258,7 +258,7 @@ export default class Slave {
                 }
             });
 
-            this.modbusServer.on('preReadCoilsRequest', (start: number, quantity: number): void => {
+            this.modbusServer.on('readCoilsRequest', (start: number, quantity: number): void => {
                 if (this.options.config.notifyOnReadCoils) {
                     const regs = this.device.coils;
                     for (let i = 0; i < quantity; i++) {
