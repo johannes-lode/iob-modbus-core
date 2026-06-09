@@ -633,7 +633,10 @@ export default class ModbusAdapter extends Adapter {
         return address + offset;
     }
 
-    async createExtendObject(id: string, objData: ioBroker.StateObject | ioBroker.ChannelObject): Promise<void> {
+    async createExtendObject(
+        id: string,
+        objData: ioBroker.StateObject | ioBroker.ChannelObject | ioBroker.FolderObject,
+    ): Promise<void> {
         const oldObj = await this.getObjectAsync(id);
         if (oldObj) {
             await this.extendObjectAsync(id, objData);
@@ -644,7 +647,7 @@ export default class ModbusAdapter extends Adapter {
 
     async processTasks(
         tasks: (
-            | { name: 'add'; id: string; obj: ioBroker.StateObject | ioBroker.ChannelObject }
+            | { name: 'add'; id: string; obj: ioBroker.StateObject | ioBroker.ChannelObject | ioBroker.FolderObject }
             | { name: 'del'; id: string }
             | { name: 'syncEnums'; id: string; newName: string }
         )[],
@@ -960,7 +963,7 @@ export default class ModbusAdapter extends Adapter {
         regName: string,
         regFullName: string,
         tasks: (
-            | { name: 'add'; id: string; obj: ioBroker.StateObject | ioBroker.ChannelObject }
+            | { name: 'add'; id: string; obj: ioBroker.StateObject | ioBroker.ChannelObject | ioBroker.FolderObject }
             | { name: 'del'; id: string }
             | { name: 'syncEnums'; id: string; newName: string }
         )[],
@@ -1062,8 +1065,9 @@ export default class ModbusAdapter extends Adapter {
     checkReadNotifyObjects(
         regType: Modbus.RegisterType,
         regName: string,
+        regFullName: string,
         tasks: (
-            | { name: 'add'; id: string; obj: ioBroker.StateObject | ioBroker.ChannelObject }
+            | { name: 'add'; id: string; obj: ioBroker.StateObject | ioBroker.ChannelObject | ioBroker.FolderObject }
             | { name: 'del'; id: string }
             | { name: 'syncEnums'; id: string; newName: string }
         )[],
@@ -1105,7 +1109,7 @@ export default class ModbusAdapter extends Adapter {
                 name: 'add',
                 obj: {
                     type: 'channel',
-                    common: { name: `Read notify: ${regName}` },
+                    common: { name: `Read notify: ${regFullName}` },
                     native: {},
                 } as ioBroker.ChannelObject,
             });
@@ -1477,7 +1481,7 @@ export default class ModbusAdapter extends Adapter {
         this.config.holdingRegs.sort(sortByAddress);
 
         const tasks: (
-            | { name: 'add'; id: string; obj: ioBroker.StateObject | ioBroker.ChannelObject }
+            | { name: 'add'; id: string; obj: ioBroker.StateObject | ioBroker.ChannelObject | ioBroker.FolderObject }
             | { name: 'del'; id: string }
             | { name: 'syncEnums'; id: string; newName: string }
         )[] = [];
@@ -1588,24 +1592,39 @@ export default class ModbusAdapter extends Adapter {
                 let hasReadNotify = false;
                 if (options.config.notifyOnReadDisInputs) {
                     hasReadNotify =
-                        this.checkReadNotifyObjects('disInputs', 'disInputs', tasks, newObjects, deviceId, isPulse) ||
-                        hasReadNotify;
+                        this.checkReadNotifyObjects(
+                            'disInputs',
+                            'discreteInputs',
+                            'Discrete inputs',
+                            tasks,
+                            newObjects,
+                            deviceId,
+                            isPulse,
+                        ) || hasReadNotify;
                 }
                 if (options.config.notifyOnReadCoils) {
                     hasReadNotify =
-                        this.checkReadNotifyObjects('coils', 'coils', tasks, newObjects, deviceId, isPulse) ||
+                        this.checkReadNotifyObjects('coils', 'coils', 'Coils', tasks, newObjects, deviceId, isPulse) ||
                         hasReadNotify;
                 }
                 if (options.config.notifyOnReadInputRegs) {
                     hasReadNotify =
-                        this.checkReadNotifyObjects('inputRegs', 'inputRegs', tasks, newObjects, deviceId, isPulse) ||
-                        hasReadNotify;
+                        this.checkReadNotifyObjects(
+                            'inputRegs',
+                            'inputRegisters',
+                            'Input registers',
+                            tasks,
+                            newObjects,
+                            deviceId,
+                            isPulse,
+                        ) || hasReadNotify;
                 }
                 if (options.config.notifyOnReadHoldingRegs) {
                     hasReadNotify =
                         this.checkReadNotifyObjects(
                             'holdingRegs',
-                            'holdingRegs',
+                            'holdingRegisters',
+                            'Holding registers',
                             tasks,
                             newObjects,
                             deviceId,
@@ -1617,10 +1636,10 @@ export default class ModbusAdapter extends Adapter {
                         id: 'readNotify',
                         name: 'add',
                         obj: {
-                            type: 'channel',
+                            type: 'folder',
                             common: { name: 'Read notify' },
                             native: {},
-                        } as ioBroker.ChannelObject,
+                        } as ioBroker.FolderObject,
                     });
                     newObjects.push(`${this.namespace}.readNotify`);
                 }
