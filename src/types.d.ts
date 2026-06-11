@@ -194,8 +194,6 @@ export interface Options {
         enableSanitization?: boolean;
 
         // Only for slave — read-notify feature
-        /** Signal mechanism for read-notify states: boolean pulse or incrementing counter */
-        notifyOnReadMode?: 'pulse' | 'counter';
         /** Expire time in seconds for counter-mode read-notify states; 0 = no expire */
         notifyOnReadExpire?: number;
         notifyOnReadCoils?: boolean;
@@ -331,8 +329,6 @@ export interface ModbusParameters {
     enableSanitization?: boolean;
 
     // Slave mode — read-notify feature
-    /** Signal mechanism: boolean pulse or incrementing counter. Default: 'counter' */
-    notifyOnReadMode?: 'pulse' | 'counter';
     /** Expire time in seconds for counter-mode states; 0 or omitted = no expire */
     notifyOnReadExpire?: number | string;
     /** Emit read-notify states for coils (FC1) */
@@ -455,7 +451,6 @@ export interface ModbusParametersTyped extends ModbusParameters {
     enableSanitization?: boolean;
 
     // Slave mode — read-notify feature
-    notifyOnReadMode?: 'pulse' | 'counter';
     notifyOnReadExpire?: number | string;
     notifyOnReadCoils?: boolean;
     notifyOnReadDisInputs?: boolean;

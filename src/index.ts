@@ -771,7 +771,6 @@ export default class ModbusAdapter extends Adapter {
         options.config.enableSanitization = !!params.enableSanitization;
 
         if (options.config.slave) {
-            options.config.notifyOnReadMode = params.notifyOnReadMode || 'counter';
             options.config.notifyOnReadExpire = parseInt(params.notifyOnReadExpire as string, 10) || 0;
             options.config.notifyOnReadCoils = !!params.notifyOnReadCoils;
             options.config.notifyOnReadDisInputs = !!params.notifyOnReadDisInputs;
@@ -1073,7 +1072,6 @@ export default class ModbusAdapter extends Adapter {
         )[],
         newObjects: string[],
         deviceId: number,
-        isPulse: boolean,
     ): boolean {
         const regs = this.config[regType] as Modbus.RegisterInternal[];
         let count = 0;
@@ -1091,10 +1089,10 @@ export default class ModbusAdapter extends Adapter {
                     common: {
                         name: reg.description || reg.id,
                         role: 'state',
-                        type: isPulse ? 'boolean' : 'number',
+                        type: 'number',
                         read: true,
-                        write: true,
-                        def: isPulse ? false : 0,
+                        write: false,
+                        def: 0,
                     },
                     native: {},
                 } as ioBroker.StateObject,
@@ -1588,7 +1586,6 @@ export default class ModbusAdapter extends Adapter {
                     .filter(e => e.deviceId === deviceId)
                     .map(e => (e as Modbus.RegisterInternal).fullId);
 
-                const isPulse = options.config.notifyOnReadMode === 'pulse';
                 let hasReadNotify = false;
                 if (options.config.notifyOnReadDisInputs) {
                     hasReadNotify =
@@ -1599,12 +1596,11 @@ export default class ModbusAdapter extends Adapter {
                             tasks,
                             newObjects,
                             deviceId,
-                            isPulse,
                         ) || hasReadNotify;
                 }
                 if (options.config.notifyOnReadCoils) {
                     hasReadNotify =
-                        this.checkReadNotifyObjects('coils', 'coils', 'Coils', tasks, newObjects, deviceId, isPulse) ||
+                        this.checkReadNotifyObjects('coils', 'coils', 'Coils', tasks, newObjects, deviceId) ||
                         hasReadNotify;
                 }
                 if (options.config.notifyOnReadInputRegs) {
@@ -1616,7 +1612,6 @@ export default class ModbusAdapter extends Adapter {
                             tasks,
                             newObjects,
                             deviceId,
-                            isPulse,
                         ) || hasReadNotify;
                 }
                 if (options.config.notifyOnReadHoldingRegs) {
@@ -1628,7 +1623,6 @@ export default class ModbusAdapter extends Adapter {
                             tasks,
                             newObjects,
                             deviceId,
-                            isPulse,
                         ) || hasReadNotify;
                 }
                 if (hasReadNotify) {

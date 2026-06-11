@@ -140,32 +140,16 @@ export default class Slave {
     private emitReadNotify(valueStateId: string): void {
         const shortId = valueStateId.slice(this.adapter.namespace.length + 1);
         const notifyId = `${this.adapter.namespace}.readNotify.${shortId}`;
-        if (this.options.config.notifyOnReadMode === 'pulse') {
-            void this.adapter.setState(
-                notifyId,
-                true,
-                true,
-                err => err && this.adapter.log.error(`readNotify setState error: ${err.message}`),
-            );
-            setImmediate(
-                () =>
-                    void this.adapter.setState(
-                        notifyId,
-                        false,
-                        false,
-                        err => err && this.adapter.log.error(`readNotify setState error: ${err.message}`),
-                    ),
-            );
-        } else {
-            const counter = (this.readNotifyCounters.get(notifyId) ?? 0) + 1;
-            this.readNotifyCounters.set(notifyId, counter);
-            const expire = this.options.config.notifyOnReadExpire;
-            void this.adapter.setState(
-                notifyId,
-                expire ? { val: counter, ack: true, expire } : { val: counter, ack: true },
-                err => err && this.adapter.log.error(`readNotify setState error: ${err.message}`),
-            );
-        }
+        // Counter only: monotonic increment with ack:true. ack:true keeps this out of the
+        // stateChange handler, so the adapter never processes its own writes (no feedback loop).
+        const counter = (this.readNotifyCounters.get(notifyId) ?? 0) + 1;
+        this.readNotifyCounters.set(notifyId, counter);
+        const expire = this.options.config.notifyOnReadExpire;
+        void this.adapter.setState(
+            notifyId,
+            expire ? { val: counter, ack: true, expire } : { val: counter, ack: true },
+            err => err && this.adapter.log.error(`readNotify setState error: ${err.message}`),
+        );
     }
 
     start(): void {
