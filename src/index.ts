@@ -1721,7 +1721,7 @@ export default class ModbusAdapter extends Adapter {
                         def: 0,
                     },
                     native: {},
-                } as ioBroker.StateObject);
+                });
             }
             const startsState = await this.getStateAsync('info.adapterStarts');
             await this.setStateAsync('info.adapterStarts', ((startsState?.val as number) || 0) + 1, true);
