@@ -411,8 +411,12 @@ export default class Slave {
                         this.adapter.log.error(`Can not set value: ${(err as Error).message}`);
                     }
 
-                    regs.values[a] = buf[0];
-                    regs.values[a + 1] = buf[1];
+                    // regs.values is byte-indexed (see write() and postWriteMultipleRegistersRequest),
+                    // so a register index `a` must be scaled by 2. Without the *2 an fc6 write to
+                    // register `a` corrupts the bytes of register floor(a/2) instead (e.g. a write to
+                    // the control register clobbered the middle bytes of a neighbouring int32).
+                    regs.values[a * 2] = buf[0];
+                    regs.values[a * 2 + 1] = buf[1];
                 }
             });
 
