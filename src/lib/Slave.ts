@@ -513,8 +513,12 @@ export default class Slave {
                             this.adapter.log.error(`Can not set value: ${err.message}`);
                         }
 
+                        // Source bytes live at the absolute register position i + start (same offset
+                        // extractValue reads above), not at the block start. Using start * 2 copied the
+                        // first register's bytes into every subsequent mapped register of a multi-register
+                        // fc16 write, so their read-back returned the first register's value.
                         for (let k = 0; k < native.len * 2; k++) {
-                            regs.values[a * 2 + k] = data.readUInt8(start * 2 + k);
+                            regs.values[a * 2 + k] = data.readUInt8((i + start) * 2 + k);
                         }
                         i += native.len;
                     } else {
