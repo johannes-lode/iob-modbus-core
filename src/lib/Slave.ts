@@ -195,7 +195,10 @@ export default class Slave {
                         port: serverTcp.port || 502,
                         hostname: serverTcp.ip || '0.0.0.0',
                     },
-                    responseDelay: 100,
+                    // No artificial responseDelay for TCP: the delay is applied per request and, combined with the
+                    // shared request queue, serializes all connections. With multiple masters this stacks into
+                    // multi-second latencies (head-of-line blocking) and master timeouts. Omitting it lets the core
+                    // use setImmediate, which yields cooperatively without an artificial per-request wall.
                     coils: Buffer.alloc((this.device.coils.addressHigh + 7) >> 3),
                     discrete: Buffer.alloc((this.device.disInputs.addressHigh + 7) >> 3),
                     input: Buffer.alloc(this.device.inputRegs.addressHigh * 2),
