@@ -206,12 +206,15 @@ export function writeValue(type: RegisterEntryType, value: number | string, len?
         case 'int8be':
             buffer = Buffer.alloc(2);
             buffer[0] = 0;
-            buffer.writeInt8((value as number) & 0xff, 1);
+            // writeUInt8 (not writeInt8): value & 0xff yields 0…255, which is out of writeInt8's
+            // -128…127 range and throws RangeError for negative values. The byte is already the
+            // correct two's-complement representation; extractValue reads it back via readInt8.
+            buffer.writeUInt8((value as number) & 0xff, 1);
             break;
         case 'int8le':
             buffer = Buffer.alloc(2);
             buffer[1] = 0;
-            buffer.writeInt8((value as number) & 0xff, 0);
+            buffer.writeUInt8((value as number) & 0xff, 0);
             break;
         case 'uint16be':
             buffer = Buffer.alloc(2);
