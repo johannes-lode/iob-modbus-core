@@ -16,6 +16,11 @@ export function extractValue(type: RegisterEntryType, len: number, buffer: Buffe
             return buffer.readInt8(offset * 2 + 1);
         case 'int8le':
             return buffer.readInt8(offset * 2);
+        // Read only the relevant 8 bits (robust: some counterparts leave garbage in the pad byte).
+        case 'signExtendedInt8be':
+            return buffer.readInt8(offset * 2 + 1);
+        case 'signExtendedInt8le':
+            return buffer.readInt8(offset * 2);
         case 'uint16be':
             return buffer.readUInt16BE(offset * 2);
         case 'uint16le':
@@ -188,6 +193,28 @@ export function writeValue(type: RegisterEntryType, value: number | string, len?
             buffer[1] = 0;
             buffer.writeUInt8((value as number) & 0xff, 0);
             break;
+        case 'signExtendedInt8be':
+        case 'signExtendedInt8le': {
+            // Signed int8 written into the full 16-bit register WITH sign extension into the pad byte
+            // (int8be/int8le zero the pad byte instead). writeInt16BE/LE places the value byte at the
+            // same position extractValue reads via readInt8, so the round-trip still yields -N.
+            // Out-of-range values throw a RangeError (Node-style) so the existing try/catch in
+            // Slave/Master logs the standard "Can not write value" warning and leaves the register
+            // unwritten — consistent with the range handling of the other numeric types.
+            const n = Number(value);
+            if (n < -128 || n > 127) {
+                throw new RangeError(
+                    `The value of "value" is out of range. It must be >= -128 and <= 127. Received ${n}`,
+                );
+            }
+            buffer = Buffer.alloc(2);
+            if (type === 'signExtendedInt8be') {
+                buffer.writeInt16BE(n, 0);
+            } else {
+                buffer.writeInt16LE(n, 0);
+            }
+            break;
+        }
         case 'uint16be':
             buffer = Buffer.alloc(2);
             buffer.writeUInt16BE(value as number, 0);

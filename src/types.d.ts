@@ -16,6 +16,10 @@ export type RegisterEntryType =
     | 'uint8le'
     | 'int8be'
     | 'int8le'
+    // signed int8 sign-extended into the full 16-bit register (pad byte = sign), unlike int8be/int8le
+    // which zero-pad. Out-of-range values (< -128 / > 127) are rejected with a warning, not wrapped.
+    | 'signExtendedInt8be'
+    | 'signExtendedInt8le'
     | 'uint32be'
     | 'uint32le'
     | 'uint32sw'
